@@ -224,8 +224,8 @@ module.exports = function(RED) {
 
 						queue.push(() => {
 							return new Promise(function (resolve) {
+								const millisecondsDown  = ((new Date()).getTime() - node.statusTimerDown.getTime()) 
 								executeCode(msg, send, done, node, resolvedTokens).then(() => {
-									const millisecondsDown  = ((new Date()).getTime() - node.statusTimerDown.getTime()) 
 									node.statusTimerDown = new Date()
 									if ( node.waitingForExecuting > 0){
 										node.waitingForExecuting--
@@ -243,6 +243,7 @@ module.exports = function(RED) {
 						done(err.message);
 					});
 				} catch(err) {
+						done(err.message);
 					done(err.message);
 				}
 			}
@@ -278,12 +279,8 @@ module.exports = function(RED) {
 					const addPayload = node.addpayCB ? msg.payload : ""
 
 					let command = `${node.cmd} ${addPayload}`
-
-					// ^exec
-					if ( !node.useSpawn ) {
-
-						// Create script file
-						const shellcode=`
+					// Create script file
+					const shellcode = `
 export NODE_PATH="$HOME/.node-red/node_modules"
 file=$(mktemp -p /dev/shm/)
 ram_data_file='${msg.ram_data_file}'
@@ -293,14 +290,22 @@ EOFEOF
 chmod +x "$file"
 
 ${command}
-rm $file
-if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
+code=$?
+if [ "$code" = 0 ]; then
+	rm $file
+	if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
+	exit 0
+else 
+	exit "$code"
+fi
 `
+
+					// ^exec
+					if ( !node.useSpawn ) {
 						// Exec Script
 						const child = exec(shellcode, node.execOpt, (err, stdout, stderr) => {
 							if (err) {
 								// Handling logs on error
-								//if ( node.killingProcess === false ){
 								const error = {}
 								error.name = node.name
 								error.type = 'error'
@@ -329,8 +334,6 @@ if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
 								// Sending message to the next node
 								if (stdout){
 									stdout = stdout.trim()
-
-									//output(msg, stdout.slice(0, -1), send, done);
 									if ( node.splitLine === false ){
 										output(msg, stdout, send, done);
 									} else {
@@ -345,44 +348,24 @@ if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
 										output.type = 'successful'
 										output.stdout = '\n\n' + stdout
 										printToLogFile(output) 
-										//node.warn(stdout.slice(0, -1))
 										node.warn(stdout)
 									}
 								}
-								//node.warn(JSON.stringify(node.activeProcesses[child.pid]))
 							}
 							delete node.activeProcesses[child.pid]
 							delete msg.ram_data_file
 							resolve()
 						})
-						//node.warn('teste')
 						node.activeProcesses[child.pid] = child.pid;
-						//	processes.push(child)
 					} // $exec
 					// ^spawn
 					else {
-						// Create script file
-						const shellcode = `
-export NODE_PATH="$HOME/.node-red/node_modules"
-file=$(mktemp -p /dev/shm/)
-ram_data_file='${msg.ram_data_file}'
-cat > $file <<- "EOFEOF"
-${value}
-EOFEOF
-chmod +x "$file"
-
-${command}
-rm $file
-if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
-`
-
 						let stderr = false
 						// spawn exec script
 						const child = spawn('/bin/bash', [ '-c',  shellcode ], node.spawnOpt)
 						node.activeProcesses[child.pid] = child.pid;
 
 						child.stdout.on('data', (data) => {
-//							output(msg, data.toString(), send, done)
 							if ( node.splitLine === false ){
 								output(msg, data.toString(), send, done);
 							} else {
@@ -414,7 +397,6 @@ if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
 						child.on('close', (code) => {
 							// Handling logs
 							if ( code !== 0 ){
-								//if ( processes_pid.includes(local_process_pid) ){
 								const error = {}
 								error.code = code
 								error.name = node.name
