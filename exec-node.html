@@ -1,0 +1,288 @@
+<script type="text/markdown" data-help-name="exec queue">
+Runs synstem commands on a queue and returns its output. This node puts together three concepts: the exec node, the template node, a queue.
+
+The template text works exactly the same as the template node. On the `Command` input it allows you to run the template by using `$file`. For example `python3 $file` will get the code written inside the template and execute it with python.
+</script>
+
+<script type="text/html" data-template-name="exec queue">
+    <div class="form-row">
+        <label for="node-input-name">
+			<i class="fa fa-tag"></i>
+			<span data-i18n="node-red:common.label.name"></span>
+		</label>
+
+        <div style="display: inline-block; width: calc(100% - 105px)">
+			<input type="text" id="node-input-name" data-i18n="[placeholder]node-red:common.label.name">
+		</div>
+
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-command">
+			<i class="fa fa-file"></i>
+			<span data-i18n="node-red:exec.label.command"></span>
+		</label>
+        <input style="display: inline-block; width: calc(100% - 108px);" type="text" id="node-input-command" data-i18n="[placeholder]node-red:exec.label.command">
+
+    </div>
+
+    <div class="form-row" style="position: relative;">
+        <label>
+			<i class="fa fa-sign-out"></i>
+			<span>Queue</span>
+		</label>
+        <input style="width:60px" type="number" id="node-input-queue" value="1">
+
+        <div style="position: absolute; right:0;display:inline-block; text-align: right; font-size: 0.8em;">
+
+			<span style="margin-right:10px;font-size:9px;">No Output</span>
+			<input type="checkbox" id="node-input-outputEmpty" style="display:inline-block; width:auto;margin-right:30px;">
+
+			<span style="margin-right:10px;font-size:9px;">Vim Mode</span>
+			<input type="checkbox" id="node-input-vimMode" style="display:inline-block; width:auto;margin-right:30px;">
+
+			<span style="margin-right:10px;font-size:9px;">Debug Mode</span>
+			<input type="checkbox" id="node-input-debugMode" style="display:inline-block; width:auto;margin-right:30px;">
+
+			<span style="margin-right:10px;font-size:9px;">Append msg.payload</span>
+			<input type="checkbox" id="node-input-addpayCB" style="display:inline-block; width:auto;margin-right:30px;">
+
+			<input type="hidden" id="node-input-template" autofocus="autofocus">
+
+            <span style="font-size:9px;" data-i18n="node-red:template.label.format"></span>:
+            <select id="node-input-format" style="width:110px; font-size: 10px !important;  height: 24px; padding:0;">
+                <option value="handlebars">Mustache</option>
+                <option value="javascript">Javascript</option>
+                <option value="python">Python</option>
+				<option value="sh">Shell</option>
+				<option value="r">R</option>
+				<option value="pgsql">PGSQL</option>
+				<option value="nginx">NGINX</option>
+				<option value="apache_conf">Apache</option>
+				<option value="dockerfile">Dockerfile</option>
+				<option value="terraform">Terraform</option>
+                <option value="text" data-i18n="node-red:template.label.none"></option>
+            </select>
+            <button id="node-template-expand-editor" class="red-ui-button red-ui-button-small"><i class="fa fa-expand"></i></button>
+        </div>
+    </div>
+    <div class="form-row node-text-editor-row">
+        <div style="height: 250px; min-height:150px;" class="node-text-editor" id="node-input-template-editor" ></div>
+    </div>
+
+    <div class="form-row" style="margin-bottom:0px;">
+        <label for="node-input-output"><i class="fa fa-long-arrow-right"></i> <span data-i18n="node-red:template.label.output"></span></label>
+        <select id="node-input-output" style="width:170px;">
+            <option value="str">Plain text</option>
+            <option value="parsedJSON">Parsed JSON</option>
+            <option value="parsedYAML">Parsed YAML</option>
+        </select>
+
+
+        <label style="margin-left: 25px;">
+			<i class="fa fa-sign-out"></i>
+			<span>Mode</span>
+		</label>
+        <select type="text" id="node-input-useSpawn" style="width:12%;margin-left:-30px;">
+            <option value="false">exec mode- when the command is complete</option>
+            <option value="true">spawn mode- while the command is running</option>
+        </select>
+
+        <label style="margin-left: 25px;" for="node-input-field"><i class="fa fa-ellipsis-h"></i> <span data-i18n="node-red:common.label.property"></span></label>
+        <input style="margin-left:-20px;width:130px;"type="text" id="node-input-field" placeholder="payload" >
+        <input style="margin-left:-20px;width:130px;"type="hidden" id="node-input-fieldType">
+
+		<span style="margin-left:20px;font-size:11px;">Split \n</span>
+		<input type="checkbox" id="node-input-splitLine" style="display:inline-block; width:auto;margin-left:10px;">
+    </div>
+
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('exec queue',{
+        //color:"rgb(180, 100, 100)",
+        color:"rgb(200, 110, 110)",
+        category: 'essential',
+        defaults: {
+            name: {value:""},
+			currentLine: {row:0, column:0},
+            command: {value:"node $template_file"},
+			//append: {value:""},
+			debugMode: {value:false},
+			outputs: {value: 1},
+            useSpawn: {value:"false"},
+            field: {value:"payload", validate:RED.validators.typedInput("fieldType")},
+            fieldType: {value:"msg"},
+            format: {value:"javascript"},
+			template: {value:`console.log(\`\n{\n\t"value": "exec queue",\n\t"purpose":"putting the ideas from the exec, template and queue nodes together"\n}\n\`)`},
+            output: {value:"str"},
+			outputEmpty: {value:false},
+			vimMode: {value:false},
+			queue: {value:1},
+			addpayCB: {value:false},
+			splitLine: {value:false},
+			cleanQueue: {value:false}
+        },
+        inputs:1,
+        outputs: 1,
+        icon: "cog.png",
+        label: function() {
+            return this.name||this._("exec queue");;
+        },
+        labelStyle: function() {
+            return this.name?"node_label_italic":"";
+        },
+        oneditprepare: function() {
+            var that = this;
+
+            if (!this.field) {
+                this.field = 'payload';
+                $("#node-input-field").val("payload");
+            }
+            if (!this.fieldType) {
+                this.fieldType = 'msg';
+            }
+            $("#node-input-field").typedInput({
+                default: 'msg',
+                types: ['msg','flow','global'],
+                typeField: $("#node-input-fieldType")
+            });
+
+            $("#node-input-field").typedInput({
+                default: 'msg',
+                types: ['msg','flow','global'],
+                typeField: $("#node-input-fieldType")
+            });
+
+//            if (this.debugMode === "true" || this.debugMode === true) {
+//                $("#node-input-debugMode").prop("checked",true);
+//            } else {
+//                $("#node-input-debugMode").prop("checked",false);
+//            }
+//
+//            if (this.addpayCB === "true" || this.addpayCB === true) {
+//                $("#node-input-addpayCB").prop("checked",true);
+//            } else {
+//                $("#node-input-addpayCB").prop("checked",false);
+//            }
+
+            this.editor = RED.editor.createEditor({
+                id: 'node-input-template-editor',
+                mode: 'ace/mode/html',
+                value: $("#node-input-template").val()
+            });
+
+            RED.library.create({
+                url:"templates", // where to get the data from
+                type:"template", // the type of object the library is for
+                editor:that.editor, // the field name the main text body goes to
+                fields:['name','format','output'],
+                ext: "txt"
+            });
+            this.editor.focus();
+
+            $("#node-input-format").on("change", function() {
+                var mod = "ace/mode/"+$("#node-input-format").val();
+                that.editor.getSession().setMode({
+                    path: mod,
+                    v: Date.now()
+                });
+            });
+
+
+			//registerController = Vim.getRegisterController()
+			//RegisterController.pushText(registerController)
+			let firstTime_vimMode = true
+            $("#node-input-vimMode").on("change", function() {
+				if ( that.vimMode === "true" || that.vimMode === true ){
+					if ( firstTime_vimMode ){
+						that.editor.setKeyboardHandler("ace/keyboard/vim")
+					} else {
+						that.vimMode = false
+						that.editor.setKeyboardHandler(null)
+					}
+				} else {
+					if ( firstTime_vimMode ){
+						that.editor.setKeyboardHandler(null)
+					} else {
+						that.vimMode = true
+						that.editor.setKeyboardHandler("ace/keyboard/vim")
+					}
+				}
+				setTimeout(function() {
+					let panel = $(".ace_text-input");
+					panel.focus();
+					firstTime_vimMode = false
+				}, 600);
+            });
+
+			let firstTime_outputEmpty = true
+            $("#node-input-outputEmpty").on("change", function() {
+				if ( that.outputEmpty === "true" || that.outputEmpty === true ){
+					if ( firstTime_outputEmpty ){
+						that.outputs = 0
+					} else {
+						that.outputEmpty = false
+						that.outputs = 1
+					}
+				} else {
+					if ( firstTime_outputEmpty ){
+						that.outputs = 1
+					} else {
+						that.outputEmpty = true
+						that.outputs = 0
+					}
+				}
+				setTimeout(function() {
+					firstTime_outputEmpty = false
+				}, 600);
+            });
+
+			if ( this.currentLine === undefined ){ this.currentLine = 1 }
+			this.editor.resize(true);
+			this.editor.scrollToLine(this.currentLine.row+1, true, true, function () {});
+			this.editor.gotoLine(this.currentLine.row+1,this.currentLine.column+1,true);
+            RED.popover.tooltip($("#node-template-expand-editor"), RED._("node-red:common.label.expand"));
+            $("#node-template-expand-editor").on("click", function(e) {
+                e.preventDefault();
+                var value = that.editor.getValue();
+                RED.editor.editText({
+                    mode: $("#node-input-format").val(),
+                    value: value,
+                    width: "Infinity",
+                    cursor: that.editor.getCursorPosition(),
+                    complete: function(v,cursor) {
+                        that.editor.setValue(v, -1);
+                        that.editor.gotoLine(cursor.row+1,cursor.column,false);
+						setTimeout(function() {
+							that.editor.focus();
+							that.editor.setKeyboardHandler("ace/keyboard/vim")
+						}, 300);
+                    }
+                })
+            })
+        },
+        oneditsave: function() {
+			this.cleanQueue = true
+			this.currentLine = this.editor.getCursorPosition()
+			$("#node-input-template").val(this.editor.getValue());
+			this.editor.destroy();
+			delete this.editor;
+        },
+        oneditcancel: function() {
+            this.editor.destroy();
+            delete this.editor;
+        },
+        oneditresize: function(size) {
+            var rows = $("#dialog-form>div:not(.node-text-editor-row)");
+            var height = $("#dialog-form").height();
+            for (var i=0; i<rows.length; i++) {
+                height -= $(rows[i]).outerHeight(true);
+            }
+            var editorRow = $("#dialog-form>div.node-text-editor-row");
+            height -= (parseInt(editorRow.css("marginTop"))+parseInt(editorRow.css("marginBottom")));
+            $(".node-text-editor").css("height",height+"px");
+            this.editor.resize();
+        }
+    });
+</script>

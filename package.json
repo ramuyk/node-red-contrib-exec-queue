@@ -1,0 +1,18 @@
+{
+    "name" : "node-red-contrib-exec-queue",
+	"dependencies": {
+		"mustache": "*",
+		"js-yaml": "*",
+		"child_process": "*",
+		"fs": "*",
+		"is-utf8": "*",
+		"queue": "*",
+		"os": "*",
+		"mktemp": "*"
+	},
+    "node-red" : {
+        "nodes": {
+            "exec node": "exec-node.js"
+        }
+    }
+}
