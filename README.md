@@ -1,5 +1,5 @@
 ## Overview
-An alternative exec command with queue for Node-RED that is also integrated with the template node. 
+A Node-RED alternative exec node that runs with a queue and is integrated with the template node. 
 
 Runs system commands on a queue and returns its output. This node puts together three concepts: the exec node, the template node, a queue.
 
