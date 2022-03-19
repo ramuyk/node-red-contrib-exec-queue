@@ -139,6 +139,7 @@ module.exports = function(RED) {
 		this.useSpawn = (n.useSpawn == "true");
 		this.timer = Number(n.timer || 0)*1000;
 		this.activeProcesses = {};
+		this.tempFiles = []
 		this.oldrc = (n.oldrc || false).toString();
 		//this.execOpt = {maxBuffer:50000000, windowsHide: (n.winHide === true)};
 		this.execOpt = {encoding:'binary', maxBuffer:50000000, windowsHide: (n.winHide === true)};
@@ -167,8 +168,7 @@ module.exports = function(RED) {
 				output(msg, msg.message, send, done);
 				delete msg.message
 			} else { 
-				let tmpfile = (process.platform === 'linux') ? "/dev/shm/node-XXXXXXXXX.tmp" : "node-XXXXXXXXX.tmp"
-				msg.ram_data_file= mktemp.createFileSync(tmpfile);
+
 				const millisecondsUp  = ((new Date()).getTime() - node.statusTimerUp.getTime()) 
 				node.statusTimerUp = new Date()
 				try {
@@ -262,10 +262,22 @@ module.exports = function(RED) {
 					node.warn(`Killing pid ${pid}`)
 				}
 			}
+
+			for (let i = 0, len = node.tempFiles.length; i < len; i++) {
+				fs.unlinkSync(nose.tempFiles[i])
+			}
 			node.activeProcesses = {};
 		});
 
 		function executeCode(msg, send, done, node, resolvedTokens){
+			const tmpRAMStructure = (process.platform === 'linux') ? "/dev/shm/node-ram-XXXXXXXXX.tmp" : "node-ram-XXXXXXXXX.tmp"
+			const tmpTemplateStructure = (process.platform === 'linux') ? "/tmp/node-red-XXXXXXXXX.tmp" : "node-red-XXXXXXXXX.tmp"
+			const tmpRAM = mktemp.createFileSync(tmpRAMStructure);
+			const tmpTemplate = mktemp.createFileSync(tmpTemplateStructure);
+			msg.ram_data_file = tmpRAM
+			node.tempFiles.push(tmpRAM)
+			node.tempFiles.push(tmpTemplate)
+
 			return new Promise(resolve => {
 				try {
 					const is_json = (node.outputFormat === "parsedJSON");
@@ -282,7 +294,8 @@ module.exports = function(RED) {
 					// Create script file
 					const shellcode = `
 export NODE_PATH="$HOME/.node-red/node_modules"
-file=$(mktemp -p /dev/shm/)
+#file=$(mktemp -p /dev/shm/)
+file='${tmpTemplate}'
 ram_data_file='${msg.ram_data_file}'
 cat > $file <<- "EOFEOF"
 ${value}
@@ -290,15 +303,15 @@ EOFEOF
 chmod +x "$file"
 
 ${command}
-code=$?
-if [ "$code" = 0 ]; then
-	rm $file
-	if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
-	exit 0
-else 
-	exit "$code"
-fi
 `
+//code=$?
+//if [ "$code" = 0 ]; then
+//	rm $file
+//	if ! [ -s $ram_data_file ]; then rm $ram_data_file 2> /dev/null;fi
+//	exit 0
+//else 
+//	exit "$code"
+//fi
 
 					// ^exec
 					if ( !node.useSpawn ) {
@@ -316,7 +329,6 @@ fi
 								const message = error
 								node.error(message, msg)
 								if ( node.debugMode === true ){ printToLogFile(message) }
-								//}
 							} else {
 								// Handling logs
 								const error = {}
@@ -354,6 +366,10 @@ fi
 							}
 							delete node.activeProcesses[child.pid]
 							delete msg.ram_data_file
+							node.tempFiles.remove_by_value(tmpRAM)
+							node.tempFiles.remove_by_value(tmpTemplate)
+							if ( fs.existsSync(tmpRAM)){fs.unlinkSync(tmpRAM)}
+							if ( fs.existsSync(tmpTemplate)){fs.unlinkSync(tmpTemplate)}
 							resolve()
 						})
 						node.activeProcesses[child.pid] = child.pid;
@@ -416,6 +432,10 @@ fi
 							}
 							delete node.activeProcesses[child.pid];
 							delete msg.ram_data_file
+							node.tempFiles.remove_by_value(tmpRAM)
+							node.tempFiles.remove_by_value(tmpTemplate)
+							if ( fs.existsSync(tmpRAM)){fs.unlinkSync(tmpRAM)}
+							if ( fs.existsSync(tmpTemplate)){fs.unlinkSync(tmpTemplate)}
 							resolve()
 						});
 
@@ -506,6 +526,15 @@ fi
 
 		function pad(n){return n<10 ? '0'+n : n}
 
+		Array.prototype.remove_by_value = function(val) {
+			for (var i = 0; i < this.length; i++) {
+				if (this[i] === val) {
+					this.splice(i, 1);
+					i--;
+				}
+			}
+			return this;
+		}
 	}
 
 	RED.nodes.registerType("exec queue",TemplateNode);
