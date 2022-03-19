@@ -19,6 +19,7 @@ module.exports = function(RED) {
 	var mustache = require("mustache");
 	var fs = require('fs');
 	var yaml = require("js-yaml");
+	var convertXML = require('xml-js');
 	var exec = require('child_process').exec;
 	var spawn = require('child_process').spawn;
 	var Queue = require('queue');
@@ -464,6 +465,18 @@ ${command}
 					node.error('Error parsing JSON: \n\n' + error)
 				}
 			}
+
+			if (node.outputFormat === "parsedXML") {
+				try {
+					//value = JSON.parse(convertXML.xml2json(value, {compact: true, spaces: 4}))
+					value = convertXML.xml2js(value, {compact: true, spaces: 4})
+				} catch (error){
+					parseError = true
+					printToLogFile('Error parsing XML: \n\n' + error)
+					node.error('Error parsing XML: \n\n' + error)
+				}
+			}
+
 			/* istanbul ignore else  */
 			if (node.outputFormat === "parsedYAML") {
 				try {

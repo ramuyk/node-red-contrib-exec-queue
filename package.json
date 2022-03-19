@@ -1,6 +1,6 @@
 {
     "name" : "node-red-contrib-exec-queue",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"dependencies": {
 		"mustache": "*",
 		"js-yaml": "*",
