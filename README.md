@@ -1,9 +1,6 @@
 ## Overview
 A Node-RED alternative exec node that runs a template code with a queue.
 
-![](https://raw.githubusercontent.com/rafaelmuynarsk/node-red-contrib-fast-debug-counter/main/gif/debug.gif)
-
-
 Runs system commands on a queue and returns its output. This node puts together three concepts: the exec node, the template node, a queue.
 
 ## How to use
