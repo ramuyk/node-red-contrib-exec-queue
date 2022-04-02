@@ -48,9 +48,6 @@ sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-
 # syntax highlight
 sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-sh.js
 sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-pgsql.js
-sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-c_cpp.js
-sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-java.js
-sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-jsx.js
 sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-r.js
 sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-nginx.js
 sudo wget -P /usr/local/lib/node_modules/node-red/node_modules/@node-red/editor-client/public/vendor/ace https://raw.githubusercontent.com/ajaxorg/ace-builds/master/src-min-noconflict/mode-apache_conf.js
