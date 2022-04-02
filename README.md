@@ -18,7 +18,7 @@ The sample above is using the command `python3` that's installed on the system t
 
 2. Executing `Node.js` code:
 
-![](https://raw.githubusercontent.com/rafaelmuynarsk/node-red-contrib-exec-queue/main/images/executing_node.gif)
+![](https://raw.githubusercontent.com/rafaelmuynarsk/node-red-contrib-exec-queue/main/images/executing_node.js.gif)
 
 3. Executing `Python` code:
 
