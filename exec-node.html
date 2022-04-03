@@ -9,9 +9,11 @@ The template text on this node works exactly the same as the template node. On t
 * `node $file`
 * `python3 $file`
 * `python3 -u $file` (spawn)
+* `Rscript $file`
 * `awk -f $file`
 * `psql postgresql://user:passwds@host:port/database -f $file`
 * `ogr2ogr -f GEOJSON /vsistdout/ PG:"host=host port=portnumber user=user password=password dbname=dbname" -sql "@$file"`
+* `ogr2ogr -f GEOJSON /vsistdout/  WFS:"http://wfspage" layername`
 * `cat $file | ssh -i /path/key user@ip bash -s`
 * `cat $file | ssh -i /path/key user@ip node -s`
 * `cat $file | ssh -i /path/key user@ip python3 -s`
