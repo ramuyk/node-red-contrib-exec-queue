@@ -1,11 +1,22 @@
 <script type="text/markdown" data-help-name="exec queue">
 ## Overview
-Runs system commands on a queue and returns its output. This node puts together three concepts: the exec node, the template node, a queue.
+Runs system commands on a queue and returns its output.
 
 ## How to use
-The template text works exactly the same as the template node. On the `Command` input it allows you to run the template by using `$file`. For example `python3 $file` will get the code written inside the template and execute it with python.
+The template text on this node works exactly the same as the template node. On the `Command` input it allows you to use the command line. The template text written is a file called `$file`. Below there are some possible commands to run with it (considering these commands are installed on the system):
 
+* `bash $file`
+* `node $file`
+* `python3 $file`
+* `python3 -u $file` (spawn)
+* `awk -f $file`
+* `psql postgresql://user:passwds@host:port/database -f $file`
+* `ogr2ogr -f GEOJSON /vsistdout/ PG:"host=host port=portnumber user=user password=password dbname=dbname" -sql "@$file"`
+* `cat $file | ssh -i /path/key user@ip bash -s`
+* `cat $file | ssh -i /path/key user@ip node -s`
+* `cat $file | ssh -i /path/key user@ip python3 -s`
 
+See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-queue).
 </script>
 
 <script type="text/html" data-template-name="exec queue">
