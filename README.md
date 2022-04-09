@@ -1,6 +1,11 @@
 ## Overview
 A Node-RED alternative exec node that runs template code with a queue.
 
+## Limitations
+
+* Currently it doesn't work on Windows. It was tested and worked on Linux only
+* Slow for sending a huge amount of messages at once (in my computer it takes around 2 minutes for executing 10 thousand processes that are only printing a message)
+
 ## How to use
 
 This node allows you to use the command line of your system to execute template code inside Node-RED:
