@@ -17,6 +17,9 @@ The template text on this node works exactly the same as the template node. On t
 * `cat $file | ssh -i /path/key user@ip bash -s`
 * `cat $file | ssh -i /path/key user@ip node -s`
 * `cat $file | ssh -i /path/key user@ip python3 -s`
+* `mv $file $file.mjs; node $file.mjs; rm $file.mjs`
+* `/usr/bin/time bash $file`
+* `valgrind bash $file`
 
 See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-queue).
 </script>

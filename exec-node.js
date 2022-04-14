@@ -292,11 +292,10 @@ chmod +x "$file"
 
 ${command}
 code=$?
+if [ -f $file ]; then rm $file;fi
 if [ "$code" = 0 ]; then
-	rm $file
 	exit 0
 else 
-	rm $file
 	exit "$code"
 fi
 `
