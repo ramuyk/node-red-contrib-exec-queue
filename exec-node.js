@@ -140,7 +140,8 @@ module.exports = function(RED) {
 		this.tempFiles = []
 		this.oldrc = (n.oldrc || false).toString();
 		//this.execOpt = {maxBuffer:50000000, windowsHide: (n.winHide === true)};
-		this.execOpt = {encoding:'binary', maxBuffer:50000000, windowsHide: (n.winHide === true)};
+		//this.execOpt = {encoding:'binary', maxBuffer:50000000, windowsHide: (n.winHide === true)};
+		this.execOpt = {maxBuffer:50000000, windowsHide: (n.winHide === true)};
 		this.spawnOpt = {windowsHide: (n.winHide === true) }
 
 		//		this.timer = Number(n.timer || 0)*1000;
