@@ -215,21 +215,25 @@ See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-que
 			//RegisterController.pushText(registerController)
 			let firstTime_vimMode = true
             $("#node-input-vimMode").on("change", function() {
-				if ( that.vimMode === "true" || that.vimMode === true ){
-					if ( firstTime_vimMode ){
-						that.editor.setKeyboardHandler("ace/keyboard/vim")
-					} else {
-						that.vimMode = false
-						that.editor.setKeyboardHandler(null)
-					}
-				} else {
-					if ( firstTime_vimMode ){
-						that.editor.setKeyboardHandler(null)
-					} else {
-						that.vimMode = true
-						that.editor.setKeyboardHandler("ace/keyboard/vim")
-					}
-				}
+                try {
+                    if ( that.vimMode === "true" || that.vimMode === true ){
+                        if ( firstTime_vimMode ){
+                            that.editor.setKeyboardHandler("ace/keyboard/vim")
+                        } else {
+                            that.vimMode = false
+                            that.editor.setKeyboardHandler(null)
+                        }
+                    } else {
+                        if ( firstTime_vimMode ){
+                            that.editor.setKeyboardHandler(null)
+                        } else {
+                            that.vimMode = true
+                            that.editor.setKeyboardHandler("ace/keyboard/vim")
+                        }
+                    }
+                } catch (e) {
+                    console.log("Vim Mode only works with the Ace editor")
+                }
 				setTimeout(function() {
 					let panel = $(".ace_text-input");
 					panel.focus();
@@ -277,7 +281,11 @@ See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-que
                         that.editor.gotoLine(cursor.row+1,cursor.column,false);
 						setTimeout(function() {
 							that.editor.focus();
-							that.editor.setKeyboardHandler("ace/keyboard/vim")
+                            try {
+                                that.editor.setKeyboardHandler("ace/keyboard/vim")
+                            } catch (e) {
+                                console.log("Vim Mode only works with the Ace editor")
+                            }
 						}, 300);
                     }
                 })
