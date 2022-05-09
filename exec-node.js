@@ -25,7 +25,7 @@ module.exports = function(RED) {
 	var Queue = require('queue');
 	var logdir = require('os').homedir() + '/.node-red/logs/'
 
-	if (!fs.existsSync(logdir)){ fs.mkdirSync(logdir); }
+	try { if (!fs.existsSync(logdir)){ fs.mkdirSync(logdir); } } catch (e) { }
 
 	function extractTokens(tokens,set) {
 		set = set || new Set();
