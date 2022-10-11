@@ -8,7 +8,8 @@
 		"xml-js": "*",
 		"child_process": "*",
 		"queue": "*",
-		"os": "*"
+		"os": "*",
+		"terminate": "*"
 	},
 	"keywords": [ "node-red" ],
 	"license": "Apache-2.0",

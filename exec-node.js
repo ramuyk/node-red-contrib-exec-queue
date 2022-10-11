@@ -18,6 +18,7 @@ module.exports = function(RED) {
 	"use strict";
 	var mustache = require("mustache");
 	var fs = require('fs');
+	var terminate = require("terminate");
 	var yaml = require("js-yaml");
 	var convertXML = require('xml-js');
 	var exec = require('child_process').exec;
@@ -146,8 +147,8 @@ module.exports = function(RED) {
 		this.oldrc = (n.oldrc || false).toString();
 		//this.execOpt = {maxBuffer:50000000, windowsHide: (n.winHide === true)};
 		//this.execOpt = {encoding:'binary', maxBuffer:50000000, windowsHide: (n.winHide === true)};
-		this.execOpt = {maxBuffer:50000000, windowsHide: (n.winHide === true)};
-		this.spawnOpt = {windowsHide: (n.winHide === true) }
+		this.execOpt = {maxBuffer:50000000, windowsHide: (n.winHide === true), detached: true};
+		this.spawnOpt = {windowsHide: (n.winHide === true), detached: true }
 
 		//		this.timer = Number(n.timer || 0)*1000;
 		//		this.activeProcesses = {};
@@ -263,7 +264,8 @@ module.exports = function(RED) {
 			for (var pid in node.activeProcesses) {
 				/* istanbul ignore else  */
 				if (node.activeProcesses.hasOwnProperty(pid)) {
-					process.kill(pid, 1)
+					// process.kill(-pid, 9)
+					terminate(pid)
 					node.activeProcesses[pid] = null;
 					node.warn(`Killing pid ${pid}`)
 				}
