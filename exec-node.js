@@ -1,4 +1,4 @@
-/**
+/** ////
  * Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +12,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- **/
-
+ **///
 module.exports = function(RED) {
+	//// LIBRARIES
 	"use strict";
 	var mustache = require("mustache");
 	var fs = require('fs');
@@ -24,9 +24,9 @@ module.exports = function(RED) {
 	var spawn = require('child_process').spawn;
 	var Queue = require('queue');
 	var logdir = require('os').homedir() + '/.node-red/logs/'
-
+	///
 	try { if (!fs.existsSync(logdir)){ fs.mkdirSync(logdir); } } catch (e) { }
-
+	//// AUXILIARY FUNCTIONS
 	function extractTokens(tokens,set) {
 		set = set || new Set();
 		tokens.forEach(function(token) {
@@ -71,6 +71,9 @@ module.exports = function(RED) {
 		try {
 			var value = this.msgContext.lookup(name);
 			if (value !== undefined) {
+				if (typeof value === "object") {
+					value = JSON.stringify(value)
+				}
 				if (this.escapeStrings && typeof value === "string") {
 					value = value.replace(/\\/g, "\\\\");
 					value = value.replace(/\n/g, "\\n");
@@ -103,9 +106,11 @@ module.exports = function(RED) {
 	NodeContext.prototype.push = function push (view) {
 		return new NodeContext(view, this.nodeContext, this.msgContext, undefined, this.cachedContextTokens);
 	};
+	///
 
 	function TemplateNode(n) {
 		RED.nodes.createNode(this,n);
+		//// SETTING VALUES
 		this.name = n.name;
 		this.field = n.field || "payload";
 		this.template = n.template;
@@ -150,7 +155,8 @@ module.exports = function(RED) {
 		//		this.execOpt = {encoding:'binary', maxBuffer:50000000, windowsHide: (n.winHide === true)};
 		//		this.spawnOpt = {windowsHide: (n.winHide === true) }
 		var node = this;
-
+		///
+		//// NODE INITIALIZATON SETUP
 		if (process.platform === 'linux' && fs.existsSync('/bin/bash')) { node.execOpt.shell = '/bin/bash'; }
 
 		var queue = Queue({ results: [], concurrency: node.queue, autostart: true})
@@ -161,16 +167,17 @@ module.exports = function(RED) {
 				node.status({fill:"blue", shape:"ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})`});
 			}
 		}, 1000)
+		///
 
 		node.on("input", function(msg, send, done) {
 			if ( msg._msgid === undefined ){
 				output(msg, msg.message, send, done);
 				delete msg.message
 			} else { 
-
 				const millisecondsUp  = ((new Date()).getTime() - node.statusTimerUp.getTime()) 
 				node.statusTimerUp = new Date()
 				try {
+					//// RESOLVING THE TEMPLATE
 					/***
 					 * Allow template contents to be defined externally
 					 * through inbound msg.template IFF node.template empty
@@ -208,9 +215,9 @@ module.exports = function(RED) {
 							}
 						}
 					});
-
+					///
 					Promise.all(promises).then(function() {
-						// Logic when a message arrives
+						//// QUEUE LOGIC
 						if ( node.executingCode < node.queue ){
 							node.executingCode++
 						} else {
@@ -219,7 +226,6 @@ module.exports = function(RED) {
 						if ( millisecondsUp > 100 ){
 							node.status({fill:"blue", shape:"ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})`});
 						}
-
 
 						queue.push(() => {
 							return new Promise(function (resolve) {
@@ -238,6 +244,7 @@ module.exports = function(RED) {
 								})
 							})
 						})
+						///
 					}).catch(function (err) {
 						done(err.message);
 					});
@@ -248,6 +255,7 @@ module.exports = function(RED) {
 		});
 
 		node.on('close',function() {
+			//// KILL PROCESSES AND ERASE FILES
 			queue.end()
 			node.executingCode = 0
 			node.waitingForExecuting = 0
@@ -265,10 +273,10 @@ module.exports = function(RED) {
 				fs.unlinkSync(nose.tempFiles[i])
 			}
 			node.activeProcesses = {};
+			///
 		});
 
 		function executeCode(msg, send, done, node, resolvedTokens){
-
 			return new Promise(resolve => {
 				try {
 					const is_json = (node.outputFormat === "parsedJSON");
@@ -282,9 +290,10 @@ module.exports = function(RED) {
 					const addPayload = node.addpayCB ? msg.payload : ""
 
 					let command = `${node.cmd} ${addPayload}`
-					// Create script file
+
+					//// BASH SCRIPT THAT WILL BE EXECUTED
 					const shellcode = `
-export NODE_PATH="$HOME/.node-red/node_modules"
+export NODE_PATH="$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
 file=$(mktemp)
 cat > $file <<- "EOFEOF"
 ${value}
@@ -300,7 +309,9 @@ else
 	exit "$code"
 fi
 `
-					// ^exec
+///
+
+					//// EXEC LOGIC
 					if ( !node.useSpawn ) {
 						// Exec Script
 						const child = exec(shellcode, node.execOpt, (err, stdout, stderr) => {
@@ -356,7 +367,8 @@ fi
 						})
 						node.activeProcesses[child.pid] = child.pid;
 					} // $exec
-					// ^spawn
+					///
+					//// SPAWN LOGIC
 					else {
 						let stderr = false
 						// spawn exec script
@@ -421,12 +433,13 @@ fi
 					node.warn(e)
 				}
 			})
-			// $spawn
+			///
 		}
 
 		function output(msg,value,send,done) {
 			/* istanbul ignore else  */
 			let parseError = false
+			//// PARSE JSON
 			if (node.outputFormat === "parsedJSON") {
 				try {
 					value = JSON.parse(value);
@@ -441,7 +454,8 @@ fi
 					node.error('Error parsing JSON: \n\n' + error)
 				}
 			}
-
+			///
+			//// PARSE XML
 			if (node.outputFormat === "parsedXML") {
 				try {
 					//value = JSON.parse(convertXML.xml2json(value, {compact: true, spaces: 4}))
@@ -452,7 +466,8 @@ fi
 					node.error('Error parsing XML: \n\n' + error)
 				}
 			}
-
+			///
+			//// PARSE YAML
 			/* istanbul ignore else  */
 			if (node.outputFormat === "parsedYAML") {
 				try {
@@ -468,7 +483,8 @@ fi
 					node.error('Error parsing YAML: \n\n' + error)
 				}
 			}
-
+			///
+			//// PARSE ERROR
 			if ( parseError === false ){
 				if (node.fieldType === 'msg') {
 					RED.util.setMessageProperty(msg, node.field, value);
@@ -488,8 +504,10 @@ fi
 					});
 				}
 			}
+			///
 		}
 
+		//// FUNCTION: PRINT VALUE TO LOG FILE
 		function printToLogFile(message){
 			try{
 				const logfile = logdir + node.id + '-' + node.name
@@ -512,6 +530,7 @@ fi
 				node.error(error)
 			}
 		}
+		///
 
 		function pad(n){return n<10 ? '0'+n : n}
 
