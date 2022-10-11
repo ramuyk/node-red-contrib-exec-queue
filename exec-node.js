@@ -219,6 +219,9 @@ module.exports = function(RED) {
 					///
 					Promise.all(promises).then(function() {
 						//// QUEUE LOGIC
+						if ( node.useSpawn === false ){
+							msg.lastMessage = false
+						}
 						if ( node.executingCode < node.queue ){
 							node.executingCode++
 						} else {
@@ -237,6 +240,9 @@ module.exports = function(RED) {
 										node.waitingForExecuting--
 									} else if ( node.executingCode > 0 ){
 										node.executingCode--
+										if ( node.executingCode === 0 && node.useSpawn === false ){
+											msg.lastMessage = true
+										}
 									}
 									if ( node.processKilled === false && ( millisecondsDown > 100 || node.executingCode === 0) ){
 										node.status({fill:"blue", shape:"ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})`});
