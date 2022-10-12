@@ -24,9 +24,7 @@ module.exports = function(RED) {
 	var exec = require('child_process').exec;
 	var spawn = require('child_process').spawn;
 	var Queue = require('queue');
-	var logdir = require('os').homedir() + '/.node-red/logs/'
 	///
-	try { if (!fs.existsSync(logdir)){ fs.mkdirSync(logdir); } } catch (e) { }
 	//// AUXILIARY FUNCTIONS
 	function extractTokens(tokens,set) {
 		set = set || new Set();
@@ -302,7 +300,7 @@ module.exports = function(RED) {
 
 					//// BASH SCRIPT THAT WILL BE EXECUTED
 					const shellcode = `
-export NODE_PATH="$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
+export NODE_PATH="$NODE_PATH:$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
 file=$(mktemp)
 cat > $file <<- "EOFEOF"
 ${value}
@@ -325,30 +323,16 @@ fi
 						// Exec Script
 						const child = exec(shellcode, node.execOpt, (err, stdout, stderr) => {
 							if (err) {
-								// Handling logs on error
 								const error = {}
-								error.name = node.name
 								error.type = 'error'
 								error.code = err.code
 								error.killed = err.killed
-								error.payload = msg.payload
-								error.stderr = stderr
-								const message = error
-								node.error(message, msg)
-								if ( node.debugMode === true ){ printToLogFile(message) }
+								msg.error_info = error
+								node.error(`error (${msg.nodeName})\n\n${stderr}`, msg)
 							} else {
-								// Handling logs
-								const error = {}
 								if ( stderr ){
-									error.name = node.name
-									error.type = 'warning'
-									error.payload = msg.payload
-									error.stderr = stderr
-									const message = error
-									node.error(message, msg)
-									if ( node.debugMode === true ){ printToLogFile(message) }
-								} else {
-								}
+									node.error(`warning (${msg.nodeName})\n\n${stderr}`, msg)
+								} 
 
 								// Sending message to the next node
 								if (stdout){
@@ -362,11 +346,6 @@ fi
 										}
 									}
 									if ( node.debugMode === true ){
-										const output = {}
-										output.name = node.name
-										output.type = 'successful'
-										output.stdout = '\n\n' + stdout
-										printToLogFile(output) 
 										node.warn(stdout)
 									}
 								}
@@ -397,42 +376,22 @@ fi
 							}
 							if ( node.debugMode === true ){
 								node.warn(messages[i].toString())
-								printToLogFile(messages[i].toString())
 							}
 						});
 
 						child.stderr.on('data', (data) => {
 							stderr = true
-							const warning = {}
-							warning.name = node.name
-							warning.type = 'warning'
-							warning.payload = msg.payload
-							warning.stderr = data.toString()
-							const message = warning
-							node.error(message, msg)
-							if ( node.debugMode === true ){ printToLogFile(message) }
+							node.error(`warning (${msg.nodeName})\n\n${data.toString()}`, msg)
 						});
 
 						child.on('close', (code) => {
-							// Handling logs
 							if ( code !== 0 ){
 								const error = {}
-								error.code = code
-								error.name = node.name
 								error.type = 'error'
-								error.payload = msg.payload
-								const message = error
-								node.error(message, msg)
-								if ( node.debugMode === true ){ printToLogFile(message) }
-								//}
-							} else {
-								const output = {}
-								output.code = code
-								output.name = node.name
-								output.type = stderr ? 'warning' : 'successful'
-								output.payload = msg.payload
-								if ( node.debugMode === true ){ printToLogFile(output) }
-							}
+								error.code = code
+								msg.error_info = error
+								node.error(`error (${msg.nodeName}): The node hasn't finished its execution`, msg)
+							} 
 							delete node.activeProcesses[child.pid];
 							resolve()
 						});
@@ -454,12 +413,10 @@ fi
 					value = JSON.parse(value);
 					if ( typeof value === 'number' ){
 						parseError = true
-						printToLogFile('Error parsing JSON: \n\n' + error)
 						node.error('Error parsing JSON: \n\n' + error)
 					}
 				} catch (error){
 					parseError = true
-					printToLogFile('Error parsing JSON: \n\n' + error)
 					node.error('Error parsing JSON: \n\n' + error)
 				}
 			}
@@ -471,7 +428,6 @@ fi
 					value = convertXML.xml2js(value, {compact: true, spaces: 4})
 				} catch (error){
 					parseError = true
-					printToLogFile('Error parsing XML: \n\n' + error)
 					node.error('Error parsing XML: \n\n' + error)
 				}
 			}
@@ -483,12 +439,10 @@ fi
 					value = yaml.load(value);
 					if ( typeof value === 'number' ){
 						parseError = true
-						printToLogFile('Error parsing YAML: \n\n' + error)
 						node.error('Error parsing YAML: \n\n' + error)
 					}
 				} catch (error){
 					parseError = true
-					printToLogFile('Error parsing YAML: \n\n' + error)
 					node.error('Error parsing YAML: \n\n' + error)
 				}
 			}
@@ -515,33 +469,6 @@ fi
 			}
 			///
 		}
-
-		//// FUNCTION: PRINT VALUE TO LOG FILE
-		function printToLogFile(message){
-			try{
-				const logfile = logdir + node.id + '-' + node.name
-				if (!fs.existsSync(logfile)) { fs.writeFileSync(logfile, '') }
-				if ( typeof message === 'object' ){
-					const d = new Date();
-					const timestamp = `${pad(d.getFullYear())}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}h${pad(d.getMinutes())}m${pad(d.getSeconds())}`
-					let string = `timestamp: ${timestamp}\n`
-					for (let key in message) {
-						string += `${key}: ${message[key]}\n` 
-					}
-					message = string
-				} else {
-					message = message + "\n";
-				}
-				fs.appendFileSync(logfile, message, 'utf8');
-			} catch (error){
-				error = "Error on printToLogFile: \n\n" + error
-				printToLogFile(error)
-				node.error(error)
-			}
-		}
-		///
-
-		function pad(n){return n<10 ? '0'+n : n}
 
 		Array.prototype.remove_by_value = function(val) {
 			for (var i = 0; i < this.length; i++) {
