@@ -171,6 +171,7 @@ module.exports = function(RED) {
 		///
 
 		node.on("input", function(msg, send, done) {
+			msg.nodeName = node.name
 			if ( msg._msgid === undefined ){
 				output(msg, msg.message, send, done);
 				delete msg.message
