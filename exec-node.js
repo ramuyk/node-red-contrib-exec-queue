@@ -51,6 +51,14 @@ module.exports = function(RED) {
 		return undefined;
 	}
 
+	function parseEnv(key) {
+        var match = /^env\.(.+)/.exec(key);
+        if (match) {
+            return match[1];
+        }
+        return undefined;
+    }
+
 	/**
 	 * Custom Mustache Context capable to collect message property and node
 	 * flow and global context
@@ -83,6 +91,11 @@ module.exports = function(RED) {
 				}
 				return value;
 			}
+
+			// try env
+            if (parseEnv(name)) {
+                return this.cachedContextTokens[name];
+            }
 
 			// try flow/global context:
 			var context = parseContext(name);
@@ -193,6 +206,17 @@ module.exports = function(RED) {
 					var tokens = extractTokens(mustache.parse(template));
 					var resolvedTokens = {};
 					tokens.forEach(function(name) {
+						var env_name = parseEnv(name);
+                        if (env_name) {
+                            var promise = new Promise((resolve, reject) => {
+                                var val = RED.util.evaluateNodeProperty(env_name, 'env', node)
+                                resolvedTokens[name] = val;
+                                resolve();
+                            });
+                            promises.push(promise);
+                            return;
+                        }
+
 						var context = parseContext(name);
 						if (context) {
 							var type = context.type;
