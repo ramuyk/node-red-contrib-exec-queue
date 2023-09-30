@@ -133,8 +133,8 @@ module.exports = function (RED) {
     };
     ///
 
-    //* TemplateNode
-    function TemplateNode(n) {
+    //* ExecQueueNode
+    function ExecQueueNode(n) {
         //** setting values
         RED.nodes.createNode(this, n);
         this.name = n.name;
@@ -303,7 +303,7 @@ module.exports = function (RED) {
             }
 
             for (let i = 0, len = node.tempFiles.length; i < len; i++) {
-                fs.unlinkSync(nose.tempFiles[i])
+                fs.unlinkSync(node.tempFiles[i])
             }
             node.activeProcesses = {};
         });
@@ -494,6 +494,6 @@ fi
     }
 
     //* end
-    RED.nodes.registerType("exec queue", TemplateNode);
+    RED.nodes.registerType("exec queue", ExecQueueNode);
     RED.library.register("templates");
 }
