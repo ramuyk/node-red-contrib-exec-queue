@@ -18,6 +18,7 @@ module.exports = function (RED) {
     "use strict";
     var mustache = require("mustache");
     var fs = require('fs');
+    var fsPromises = require('fs').promises;
     var terminate = require("terminate");
     var yaml = require("js-yaml");
     var convertXML = require('xml-js');
@@ -256,7 +257,7 @@ module.exports = function (RED) {
 
 
         //** node.on('close')
-        node.on('close', function () {
+        node.on('close', async function () {
             //// KILL PROCESSES AND ERASE FILES
             queue.end()
             node.executingCode = 0
@@ -273,7 +274,7 @@ module.exports = function (RED) {
             }
 
             for (let i = 0, len = node.tempFiles.length; i < len; i++) {
-                fs.unlinkSync(node.tempFiles[i])
+                await fsPromises.unlink(file);
             }
             node.activeProcesses = {};
         });
