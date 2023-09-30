@@ -292,12 +292,13 @@ module.exports = function (RED) {
             await fsPromises.writeFile(tmpObj.path, value, 'utf8');
             
             let shellcode;
+            const resolvedCommand = await resolveCommand(node.cmd, msg);
             if (process.platform === 'win32') {  // For Windows
-                shellcode = `${node.cmd} ${addPayload} ${tmpObj.path}`;
+                shellcode = `${resolvedCommand} ${addPayload} ${tmpObj.path}`;
             } else {  // For Linux and macOS
                 shellcode = `
 export NODE_PATH="$NODE_PATH:$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
-${node.cmd} ${addPayload} ${tmpObj.path}
+${resolvedCommand} ${addPayload} ${tmpObj.path}
             `;
             }
 
@@ -432,6 +433,94 @@ ${node.cmd} ${addPayload} ${tmpObj.path}
 
             return resolvedTokens;
         }
+
+        //** resolveCommand
+        async function resolveCommand(command, msg) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // Extract tokens from the command string
+                    var tokens = extractTokens(mustache.parse(command));
+
+                    var resolvedTokens = {};
+
+                    // Iterate over the extracted tokens to resolve their values.
+                    for (let name of tokens) {
+                        let env_name = parseEnv(name);
+                        if (env_name) {
+                            resolvedTokens[name] = RED.util.evaluateNodeProperty(env_name, 'env', node);
+                            continue;
+                        }
+
+                        // Check if the token refers to a flow or global context variable.
+                        let context = parseContext(name);
+                        if (context) {
+                            let type = context.type;
+                            let store = context.store;
+                            let field = context.field;
+                            let target = node.context()[type];
+                            if (target) {
+                                resolvedTokens[name] = await new Promise((innerResolve, innerReject) => {
+                                    target.get(field, store, (err, val) => {
+                                        if (err) innerReject(err);
+                                        else innerResolve(val);
+                                    });
+                                });
+                            }
+                        }
+                    }
+
+                    var parsedCommand = mustache.parse(command);
+
+                    // Extract the variable names from the parsed tokens.
+                    var variableNames = parsedCommand
+                        .filter(token => token[0] === '&')
+                        .map(token => token[1]);
+
+                    var resolvedValues = {};
+
+                    // Resolve the values for each variable.
+                    for (let variableName of variableNames) {
+                        let env_name = parseEnv(variableName);
+                        if (env_name) {
+                            resolvedValues[variableName] = RED.util.evaluateNodeProperty(env_name, 'env', node);
+                            continue;
+                        }
+
+                        // Check if the variable refers to a flow or global context variable.
+                        let context = parseContext(variableName);
+                        if (context) {
+                            let type = context.type;
+                            let store = context.store;
+                            let field = context.field;
+                            let target = node.context()[type];
+                            if (target) {
+                                resolvedValues[variableName] = await new Promise((innerResolve, innerReject) => {
+                                    target.get(field, store, (err, val) => {
+                                        if (err) innerReject(err);
+                                        else innerResolve(val);
+                                    });
+                                });
+                            }
+                        } else {
+                            // If the variable is not in the context or an env variable, try to get it from the msg object.
+                            resolvedValues[variableName] = msg[variableName];
+                        }
+                    }
+
+                    // Replace the variables in the original command with their resolved values.
+                    for (let variableName in resolvedValues) {
+                        command = command.replace(`{{{${variableName}}}}`, resolvedValues[variableName]);
+                    }
+
+                    console.log(command);
+                    resolve(command);  // Use the resolve here
+                } catch (error) {
+                    console.error("Error in resolveCommand:", error);
+                    reject(error);  // Use the reject here
+                }
+            });
+        }
+
         //** function: output
         function output(msg, value, send, done) {
             /* istanbul ignore else  */
