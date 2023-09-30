@@ -61,6 +61,7 @@ module.exports = function (RED) {
         return undefined;
     }
 
+
     /**
      * Custom Mustache Context capable to collect message property and node
      * flow and global context
@@ -207,42 +208,10 @@ module.exports = function (RED) {
                 const millisecondsUp = ((new Date()).getTime() - node.statusTimerUp.getTime());
                 node.statusTimerUp = new Date();
 
-                //*** RESOLVING THE TEMPLATE
-                var template = node.template;
-                if (msg.hasOwnProperty("template")) {
-                    if (template == "" || template === null) {
-                        template = msg.template;
-                    }
-                }
+                // resolving templates
+                const resolvedTokens = await resolveTemplate(msg);
 
-                var resolvedTokens = {};
-                var tokens = extractTokens(mustache.parse(template));
-
-                for (let name of tokens) {
-                    let env_name = parseEnv(name);
-                    if (env_name) {
-                        resolvedTokens[name] = RED.util.evaluateNodeProperty(env_name, 'env', node);
-                        continue;
-                    }
-
-                    let context = parseContext(name);
-                    if (context) {
-                        let type = context.type;
-                        let store = context.store;
-                        let field = context.field;
-                        let target = node.context()[type];
-                        if (target) {
-                            resolvedTokens[name] = await new Promise((resolve, reject) => {
-                                target.get(field, store, (err, val) => {
-                                    if (err) reject(err);
-                                    else resolve(val);
-                                });
-                            });
-                        }
-                    }
-                }
-
-                //*** QUEUE LOGIC
+                // queue logic
                 if (node.useSpawn === false) {
                     msg.lastMessage = false;
                 }
@@ -284,6 +253,7 @@ module.exports = function (RED) {
                 done(err.message);
             }
         });
+
 
         //** node.on('close')
         node.on('close', function () {
@@ -426,6 +396,46 @@ fi
         }
 
         
+        //** resolveTemplate
+        async function resolveTemplate(msg) {
+            var template = node.template;
+            if (msg.hasOwnProperty("template")) {
+                if (template == "" || template === null) {
+                    template = msg.template;
+                }
+            }
+
+            var resolvedTokens = {};
+            var tokens = extractTokens(mustache.parse(template));
+
+            // Iterate over the extracted tokens to resolve their values.
+            for (let name of tokens) {
+                let env_name = parseEnv(name);
+                if (env_name) {
+                    resolvedTokens[name] = RED.util.evaluateNodeProperty(env_name, 'env', node);
+                    continue;
+                }
+
+                // Check if the token refers to a flow or global context variable.
+                let context = parseContext(name);
+                if (context) {
+                    let type = context.type;
+                    let store = context.store;
+                    let field = context.field;
+                    let target = node.context()[type];
+                    if (target) {
+                        resolvedTokens[name] = await new Promise((resolve, reject) => {
+                            target.get(field, store, (err, val) => {
+                                if (err) reject(err);
+                                else resolve(val);
+                            });
+                        });
+                    }
+                }
+            }
+
+            return resolvedTokens;
+        }
         //** function: output
         function output(msg, value, send, done) {
             /* istanbul ignore else  */
