@@ -4,6 +4,7 @@
 	"dependencies": {
 		"mustache": "*",
 		"fs": "*",
+        "tmp-promise": "*",
 		"js-yaml": "*",
 		"xml-js": "*",
 		"child_process": "*",

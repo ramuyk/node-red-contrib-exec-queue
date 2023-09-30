@@ -18,6 +18,7 @@ module.exports = function (RED) {
     "use strict";
     var mustache = require("mustache");
     var fs = require('fs');
+    var tmp = require('tmp-promise');
     var fsPromises = require('fs').promises;
     var terminate = require("terminate");
     var yaml = require("js-yaml");
@@ -285,29 +286,29 @@ module.exports = function (RED) {
             let template = node.template || msg.template;
             const value = mustache.render(template, new NodeContext(msg, node.context(), null, is_json, resolvedTokens));
             const addPayload = node.addpayCB ? msg.payload : "";
-            const command = `${node.cmd} ${addPayload}`;
-            const shellcode = `
+
+            // Create a temporary file asynchronously
+            const tmpObj = await tmp.file();
+            await fsPromises.writeFile(tmpObj.path, value, 'utf8');
+            
+            let shellcode;
+            if (process.platform === 'win32') {  // For Windows
+                shellcode = `${node.cmd} ${addPayload} ${tmpObj.path}`;
+            } else {  // For Linux and macOS
+                shellcode = `
 export NODE_PATH="$NODE_PATH:$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
-file=$(mktemp)
-cat > $file <<- "EOFEOF"
-${value}
-EOFEOF
-chmod +x "$file"
+${node.cmd} ${addPayload} ${tmpObj.path}
+            `;
+            }
 
-${command}
-code=$?
-if [ -f $file ]; then rm $file;fi
-if [ "$code" = 0 ]; then
-exit 0
-else 
-exit "$code"
-fi
-        `;
-
-            if (!node.useSpawn) {
-                await executeWithExec(shellcode, node, msg, send, done);
-            } else {
-                await executeWithSpawn(shellcode, node, msg, send, done);
+            try {
+                if (!node.useSpawn) {
+                    await executeWithExec(shellcode, node, msg, send, done);
+                } else {
+                    await executeWithSpawn(shellcode, node, msg, send, done);
+                }
+            } finally {
+                await tmpObj.cleanup();
             }
         }
 
