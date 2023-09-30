@@ -1,13 +1,13 @@
 {
     "name" : "node-red-contrib-exec-queue",
-	"version": "1.0.26",
+	"version": "1.0.28",
 	"dependencies": {
 		"mustache": "*",
 		"fs": "*",
 		"js-yaml": "*",
 		"xml-js": "*",
 		"child_process": "*",
-		"queue": "*",
+		"queue": "^6.0.2",
 		"os": "*",
 		"terminate": "*"
 	},

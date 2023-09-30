@@ -1,3 +1,4 @@
+<!--* header -->
 <script type="text/markdown" data-help-name="exec queue">
 ## Overview
 Runs system commands on a queue and returns its output.
@@ -23,7 +24,7 @@ The template text on this node works exactly the same as the template node. On t
 
 See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-queue).
 </script>
-
+<!--* node-design -->
 <script type="text/html" data-template-name="exec queue">
     <div class="form-row">
         <label for="node-input-name">
@@ -118,8 +119,9 @@ See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-que
     </div>
 
 </script>
-
+<!--* javascript -->
 <script type="text/javascript">
+        //** defining-variables
     RED.nodes.registerType('exec queue',{
         //color:"rgb(180, 100, 100)",
         color:"rgb(200, 110, 110)",
@@ -147,12 +149,15 @@ See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-que
         inputs:1,
         outputs: 1,
         icon: "cog.png",
+        //** function: label
         label: function() {
             return this.name||this._("exec queue");;
         },
+        //** function: labelStyle
         labelStyle: function() {
             return this.name?"node_label_italic":"";
         },
+        //** function: oneditprepare
         oneditprepare: function() {
             var that = this;
 
@@ -291,6 +296,7 @@ See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-que
                 })
             })
         },
+        //** function: oneditsave
         oneditsave: function() {
 			this.cleanQueue = true
 			this.currentLine = this.editor.getCursorPosition()
@@ -298,10 +304,12 @@ See more examples [here](https://www.npmjs.com/package/node-red-contrib-exec-que
 			this.editor.destroy();
 			delete this.editor;
         },
+        //** function: oneditcancel
         oneditcancel: function() {
             this.editor.destroy();
             delete this.editor;
         },
+        //** function: oneditresize
         oneditresize: function(size) {
             var rows = $("#dialog-form>div:not(.node-text-editor-row)");
             var height = $("#dialog-form").height();
