@@ -194,104 +194,94 @@ module.exports = function (RED) {
         }, 1000)
 
         //** node.on('input')
-        node.on("input", function (msg, send, done) {
-            msg.nodeName = node.name
-            if (msg._msgid === undefined) {
-                output(msg, msg.message, send, done);
-                delete msg.message
-            } else {
-                const millisecondsUp = ((new Date()).getTime() - node.statusTimerUp.getTime())
-                node.statusTimerUp = new Date()
-                try {
-                    //*** RESOLVING THE TEMPLATE
-                    /***
-                     * Allow template contents to be defined externally
-                     * through inbound msg.template IFF node.template empty
-                     */
-                    var template = node.template;
-                    if (msg.hasOwnProperty("template")) {
-                        if (template == "" || template === null) {
-                            template = msg.template;
-                        }
+        node.on("input", async function (msg, send, done) {
+            try {
+                msg.nodeName = node.name;
+
+                if (msg._msgid === undefined) {
+                    output(msg, msg.message, send, done);
+                    delete msg.message;
+                    return;
+                }
+
+                const millisecondsUp = ((new Date()).getTime() - node.statusTimerUp.getTime());
+                node.statusTimerUp = new Date();
+
+                //*** RESOLVING THE TEMPLATE
+                var template = node.template;
+                if (msg.hasOwnProperty("template")) {
+                    if (template == "" || template === null) {
+                        template = msg.template;
+                    }
+                }
+
+                var resolvedTokens = {};
+                var tokens = extractTokens(mustache.parse(template));
+
+                for (let name of tokens) {
+                    let env_name = parseEnv(name);
+                    if (env_name) {
+                        resolvedTokens[name] = RED.util.evaluateNodeProperty(env_name, 'env', node);
+                        continue;
                     }
 
-                    var promises = [];
-                    var tokens = extractTokens(mustache.parse(template));
-                    var resolvedTokens = {};
-                    tokens.forEach(function (name) {
-                        var env_name = parseEnv(name);
-                        if (env_name) {
-                            var promise = new Promise((resolve, reject) => {
-                                var val = RED.util.evaluateNodeProperty(env_name, 'env', node)
-                                resolvedTokens[name] = val;
-                                resolve();
-                            });
-                            promises.push(promise);
-                            return;
-                        }
-
-                        var context = parseContext(name);
-                        if (context) {
-                            var type = context.type;
-                            var store = context.store;
-                            var field = context.field;
-                            var target = node.context()[type];
-                            if (target) {
-                                var promise = new Promise((resolve, reject) => {
-                                    target.get(field, store, (err, val) => {
-                                        if (err) {
-                                            reject(err);
-                                        } else {
-                                            resolvedTokens[name] = val;
-                                            resolve();
-                                        }
-                                    });
+                    let context = parseContext(name);
+                    if (context) {
+                        let type = context.type;
+                        let store = context.store;
+                        let field = context.field;
+                        let target = node.context()[type];
+                        if (target) {
+                            resolvedTokens[name] = await new Promise((resolve, reject) => {
+                                target.get(field, store, (err, val) => {
+                                    if (err) reject(err);
+                                    else resolve(val);
                                 });
-                                promises.push(promise);
-                                return;
-                            }
+                            });
                         }
-                    });
-                    //*** QUEUE LOGIC
-                    Promise.all(promises).then(function () {
-                        if (node.useSpawn === false) {
-                            msg.lastMessage = false
-                        }
-                        if (node.executingCode < node.queue) {
-                            node.executingCode++
-                        } else {
-                            node.waitingForExecuting++
-                        }
-                        if (millisecondsUp > 100) {
-                            node.status({ fill: "blue", shape: "ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})` });
-                        }
-
-                        queue.push(() => {
-                            return new Promise(function (resolve) {
-                                const millisecondsDown = ((new Date()).getTime() - node.statusTimerDown.getTime())
-                                executeCode(msg, send, done, node, resolvedTokens).then(() => {
-                                    node.statusTimerDown = new Date()
-                                    if (node.waitingForExecuting > 0) {
-                                        node.waitingForExecuting--
-                                    } else if (node.executingCode > 0) {
-                                        node.executingCode--
-                                        if (node.executingCode === 0 && node.useSpawn === false) {
-                                            msg.lastMessage = true
-                                        }
-                                    }
-                                    if (node.processKilled === false && (millisecondsDown > 100 || node.executingCode === 0)) {
-                                        node.status({ fill: "blue", shape: "ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})` });
-                                    }
-                                    resolve()
-                                })
-                            })
-                        })
-                    }).catch(function (err) {
-                        done(err.message);
-                    });
-                } catch (err) {
-                    done(err.message);
+                    }
                 }
+
+                //*** QUEUE LOGIC
+                if (node.useSpawn === false) {
+                    msg.lastMessage = false;
+                }
+                if (node.executingCode < node.queue) {
+                    node.executingCode++;
+                } else {
+                    node.waitingForExecuting++;
+                }
+                if (millisecondsUp > 100) {
+                    node.status({ fill: "blue", shape: "ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})` });
+                }
+
+                await new Promise(resolve => {
+                    queue.push(async () => {
+                        try {
+                            const millisecondsDown = ((new Date()).getTime() - node.statusTimerDown.getTime());
+                            await executeCode(msg, send, done, node, resolvedTokens);
+                            node.statusTimerDown = new Date();
+
+                            if (node.waitingForExecuting > 0) {
+                                node.waitingForExecuting--;
+                            } else if (node.executingCode > 0) {
+                                node.executingCode--;
+                                if (node.executingCode === 0 && node.useSpawn === false) {
+                                    msg.lastMessage = true;
+                                }
+                            }
+                            if (node.processKilled === false && (millisecondsDown > 100 || node.executingCode === 0)) {
+                                node.status({ fill: "blue", shape: "ring", text: `${node.waitingForExecuting} (${node.executingCode}/${node.queue})` });
+                            }
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                });
+
+            } catch (err) {
+                done(err.message);
             }
         });
 
@@ -319,23 +309,14 @@ module.exports = function (RED) {
         });
 
         //** executeCode
-        function executeCode(msg, send, done, node, resolvedTokens) {
-            return new Promise(resolve => {
-                try {
-                    const is_json = (node.outputFormat === "parsedJSON");
-                    let template = node.template;
-                    if (msg.hasOwnProperty("template")) {
-                        if (template == "" || template === null) {
-                            template = msg.template;
-                        }
-                    }
-                    let value = mustache.render(template, new NodeContext(msg, node.context(), null, is_json, resolvedTokens));
-                    const addPayload = node.addpayCB ? msg.payload : ""
-
-                    let command = `${node.cmd} ${addPayload}`
-
-                    //*** bash script that will be executed
-                    const shellcode = `
+        async function executeCode(msg, send, done, node, resolvedTokens) {
+            try {
+                const is_json = (node.outputFormat === "parsedJSON");
+                let template = node.template || msg.template;
+                const value = mustache.render(template, new NodeContext(msg, node.context(), null, is_json, resolvedTokens));
+                const addPayload = node.addpayCB ? msg.payload : "";
+                const command = `${node.cmd} ${addPayload}`;
+                const shellcode = `
 export NODE_PATH="$NODE_PATH:$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
 file=$(mktemp)
 cat > $file <<- "EOFEOF"
@@ -347,97 +328,104 @@ ${command}
 code=$?
 if [ -f $file ]; then rm $file;fi
 if [ "$code" = 0 ]; then
-  exit 0
+exit 0
 else 
-  exit "$code"
+exit "$code"
 fi
-`
+`;
 
-                    //*** exec logic
-                    if (!node.useSpawn) {
-                        // Exec Script
-                        const child = exec(shellcode, node.execOpt, (err, stdout, stderr) => {
-                            if (err) {
-                                const error = {}
-                                error.type = 'error'
-                                error.code = err.code
-                                error.killed = err.killed
-                                msg.error_info = error
-                                node.error(`error (${msg.nodeName})\n\n${stderr}`, msg)
-                            } else {
-                                if (stderr) {
-                                    node.error(`warning (${msg.nodeName})\n\n${stderr}`, msg)
-                                }
+                if (!node.useSpawn) {
+                    await executeWithExec(shellcode, node, msg, send, done);
+                } else {
+                    await executeWithSpawn(shellcode, node, msg, send, done);
+                }
+            } catch (e) {
+                node.warn(e);
+            }
+        }
 
-                                // Sending message to the next node
-                                if (stdout) {
-                                    stdout = stdout.trim()
-                                    if (node.splitLine === false) {
-                                        output(msg, stdout, send, done);
-                                    } else {
-                                        stdout = stdout.split('\n')
-                                        for (let i = 0; i < stdout.length; i++) {
-                                            node.emit("input", { "message": stdout[i] })
-                                        }
-                                    }
-                                    if (node.debugMode === true) {
-                                        node.warn(stdout)
-                                    }
-                                }
-                            }
-                            delete node.activeProcesses[child.pid]
-                            resolve()
-                        })
-                        node.activeProcesses[child.pid] = child.pid;
-                    } // $exec
+        async function executeWithExec(shellcode, node, msg, send, done) {
+            return new Promise((resolve, reject) => {
+                const child = exec(shellcode, node.execOpt, (err, stdout, stderr) => {
+                    if (err) {
+                        const error = {
+                            type: 'error',
+                            code: err.code,
+                            killed: err.killed
+                        };
+                        msg.error_info = error;
+                        node.error(`error (${msg.nodeName})\n\n${stderr}`, msg);
+                        reject(err);
+                    } else {
+                        if (stderr) {
+                            node.error(`warning (${msg.nodeName})\n\n${stderr}`, msg);
+                        }
 
-                    //*** spawn logic
-                    else {
-                        let stderr = false
-                        // spawn exec script
-                        const child = spawn('/bin/bash', ['-c', shellcode], node.spawnOpt)
-                        node.activeProcesses[child.pid] = child.pid;
-
-                        child.stdout.on('data', (data) => {
+                        if (stdout) {
+                            stdout = stdout.trim();
                             if (node.splitLine === false) {
-                                output(msg, data.toString(), send, done);
+                                output(msg, stdout, send, done);
                             } else {
-                                data = data.toString().split('\n')
-                                for (let i = 0; i < data.length; i++) {
-                                    if (data[i] !== "") {
-                                        node.emit("input", { "message": data[i] })
-                                    }
+                                stdout = stdout.split('\n');
+                                for (let i = 0; i < stdout.length; i++) {
+                                    node.emit("input", { "message": stdout[i] });
                                 }
                             }
                             if (node.debugMode === true) {
-                                node.warn(messages[i].toString())
+                                node.warn(stdout);
                             }
-                        });
-
-                        child.stderr.on('data', (data) => {
-                            stderr = true
-                            node.error(`warning (${msg.nodeName})\n\n${data.toString()}`, msg)
-                        });
-
-                        child.on('close', (code) => {
-                            if (code !== 0) {
-                                const error = {}
-                                error.type = 'error'
-                                error.code = code
-                                msg.error_info = error
-                                node.error(`error (${msg.nodeName}): The node hasn't finished its execution`, msg)
-                            }
-                            delete node.activeProcesses[child.pid];
-                            resolve()
-                        });
-
+                        }
                     }
-                } catch (e) {
-                    node.warn(e)
-                }
-            })
+                    delete node.activeProcesses[child.pid];
+                    resolve();
+                });
+                node.activeProcesses[child.pid] = child.pid;
+            });
         }
 
+        async function executeWithSpawn(shellcode, node, msg, send, done) {
+            return new Promise((resolve, reject) => {
+                const child = spawn('/bin/bash', ['-c', shellcode], node.spawnOpt);
+                node.activeProcesses[child.pid] = child.pid;
+
+                child.stdout.on('data', (data) => {
+                    data = data.toString();
+                    if (node.splitLine === false) {
+                        output(msg, data, send, done);
+                    } else {
+                        const lines = data.split('\n');
+                        for (let line of lines) {
+                            if (line) {
+                                node.emit("input", { "message": line });
+                            }
+                        }
+                    }
+                    if (node.debugMode === true) {
+                        node.warn(data);
+                    }
+                });
+
+                child.stderr.on('data', (data) => {
+                    node.error(`warning (${msg.nodeName})\n\n${data.toString()}`, msg);
+                });
+
+                child.on('close', (code) => {
+                    if (code !== 0) {
+                        const error = {
+                            type: 'error',
+                            code: code
+                        };
+                        msg.error_info = error;
+                        node.error(`error (${msg.nodeName}): The node hasn't finished its execution`, msg);
+                        reject(new Error(`Child process exited with code ${code}`));
+                    }
+                    delete node.activeProcesses[child.pid];
+                    resolve();
+                });
+            });
+        }
+
+        
         //** function: output
         function output(msg, value, send, done) {
             /* istanbul ignore else  */
@@ -468,7 +456,6 @@ fi
             }
 
             //*** parse yaml
-            /* istanbul ignore else  */
             if (node.outputFormat === "parsedYAML") {
                 try {
                     value = yaml.load(value);
@@ -502,7 +489,6 @@ fi
                     });
                 }
             }
-            ///
         }
 
     }
