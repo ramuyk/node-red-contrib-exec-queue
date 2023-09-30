@@ -280,13 +280,12 @@ module.exports = function (RED) {
 
         //** executeCode
         async function executeCode(msg, send, done, node, resolvedTokens) {
-            try {
-                const is_json = (node.outputFormat === "parsedJSON");
-                let template = node.template || msg.template;
-                const value = mustache.render(template, new NodeContext(msg, node.context(), null, is_json, resolvedTokens));
-                const addPayload = node.addpayCB ? msg.payload : "";
-                const command = `${node.cmd} ${addPayload}`;
-                const shellcode = `
+            const is_json = (node.outputFormat === "parsedJSON");
+            let template = node.template || msg.template;
+            const value = mustache.render(template, new NodeContext(msg, node.context(), null, is_json, resolvedTokens));
+            const addPayload = node.addpayCB ? msg.payload : "";
+            const command = `${node.cmd} ${addPayload}`;
+            const shellcode = `
 export NODE_PATH="$NODE_PATH:$HOME/.node-red/node_modules:/usr/local/lib/node_modules"
 file=$(mktemp)
 cat > $file <<- "EOFEOF"
@@ -302,20 +301,17 @@ exit 0
 else 
 exit "$code"
 fi
-`;
+        `;
 
-                if (!node.useSpawn) {
-                    await executeWithExec(shellcode, node, msg, send, done);
-                } else {
-                    await executeWithSpawn(shellcode, node, msg, send, done);
-                }
-            } catch (e) {
-                node.warn(e);
+            if (!node.useSpawn) {
+                await executeWithExec(shellcode, node, msg, send, done);
+            } else {
+                await executeWithSpawn(shellcode, node, msg, send, done);
             }
         }
 
         async function executeWithExec(shellcode, node, msg, send, done) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const child = exec(shellcode, node.execOpt, (err, stdout, stderr) => {
                     if (err) {
                         const error = {
@@ -325,7 +321,6 @@ fi
                         };
                         msg.error_info = error;
                         node.error(`error (${msg.nodeName})\n\n${stderr}`, msg);
-                        reject(err);
                     } else {
                         if (stderr) {
                             node.error(`warning (${msg.nodeName})\n\n${stderr}`, msg);
@@ -395,7 +390,6 @@ fi
             });
         }
 
-        
         //** resolveTemplate
         async function resolveTemplate(msg) {
             var template = node.template;
